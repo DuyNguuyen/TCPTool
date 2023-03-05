@@ -4,10 +4,11 @@
 #include <boost/program_options.hpp>
 #include <string>
 #include <fstream>
+#include <iomanip>
 
 #pragma comment(lib, "Ws2_32.lib")
 
-#define DEFAULT_BUFLEN 512
+#define DEFAULT_BUFLEN 1024
 
 namespace po = boost::program_options;
 using namespace std;
@@ -18,7 +19,8 @@ struct Header {
     string fileName = "";
 };
 
-string encrypt(string msg, string key);
+void encrypt(char* msg, int size, const char* key, int sizeKey);
+void encryptFile(char* msg, int size, const char* key, int sizeKey, int& j);
 string RandomString(int ch);
 
 int main(int argc, char* argv[])
@@ -53,7 +55,6 @@ int main(int argc, char* argv[])
     }
 
     const char* PORT = inputPort.c_str();
-
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         cout << "WSA Startup failed with error: " << WSAGetLastError();
         return 1;
@@ -93,6 +94,8 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    cout << "\nListening for connection...";
+
     ClientSocket = accept(ListenSocket, NULL, NULL);
     if (ClientSocket == INVALID_SOCKET) {
         cout << "Accept connection failed with error: " << WSAGetLastError();
@@ -100,6 +103,11 @@ int main(int argc, char* argv[])
         WSACleanup();
         return 1;
     }
+
+    SOCKADDR_IN addr;
+    char ipinput[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &(addr.sin_addr), ipinput, INET_ADDRSTRLEN);
+    cout << "\rAccepted Connection from :  " << ipinput << "\n";
 
     Header headerRecv;
     while (1){
@@ -115,6 +123,8 @@ int main(int argc, char* argv[])
                 send(ClientSocket, pKey, 24, 0);
                 string display = "";
                 char data[DEFAULT_BUFLEN];
+
+                cout << fixed << "Received: " << 0 << "%";
                 while (length > 0) {
                     ZeroMemory(&data, sizeof(data));
                     iResult = recv(ClientSocket, data, min(DEFAULT_BUFLEN, length), 0);
@@ -123,6 +133,7 @@ int main(int argc, char* argv[])
                             display += data[i];
                         }
                         totalRecv += iResult;
+                        cout << "\rReceived: " << setprecision(2) << (totalRecv * 100.0) / headerRecv.dataLength << "%";
                         length -= iResult;
                     }
                     else if (result < 0) {
@@ -132,25 +143,27 @@ int main(int argc, char* argv[])
                         return 1;
                     }
                 }
-                display = encrypt(display, key);
-                cout << "Successfully received " << totalRecv << " bytes" << " out of " << headerRecv.dataLength 
+                encrypt((char*) display.data(), display.size(), key.data(), 24);
+                cout << "\rSuccessfully received " << totalRecv << " bytes" << " out of " << headerRecv.dataLength 
                     << " bytes of text (" << ((float)totalRecv * 100) / (float)headerRecv.dataLength
-                    << "%) - Text received: \"" << display << "\"\n";
+                    << "%) "<< "from " << ipinput << "\nText received: \"" << display << "\"\n";
             }
             else if (msgType == 2){
                 send(ClientSocket, pKey, 24, 0);
                 ofstream file;
                 char data[DEFAULT_BUFLEN];
                 file.open(out + headerRecv.fileName, ios::binary | ios::trunc);
-                string received = "";
 
+                int start = 0;
+                cout << fixed << "Received: " << 0 << "%";
                 while (length > 0) {
                     ZeroMemory(&data, sizeof(data));
                     iResult = recv(ClientSocket, data, min(DEFAULT_BUFLEN, length), 0);
                     if (iResult > 0) {
-                        string eString = encrypt(data, key);
-                        file.write(eString.c_str(), iResult);
+                        encryptFile(data, iResult, key.data(), 24, start);
+                        file.write(data, iResult);
                         totalRecv += iResult;
+                        cout << "\rReceived: " << setprecision(2) << (totalRecv * 100.0) / headerRecv.dataLength << "%";
                         length -= iResult;
                     }
                     else if (result < 0) {
@@ -161,8 +174,9 @@ int main(int argc, char* argv[])
                     }
                 }
 
-                cout << "Successfully received " << totalRecv << " bytes" << " out of " << headerRecv.dataLength
-                    << " bytes of data (" << ((float)totalRecv * 100) / (float)headerRecv.dataLength <<"%) - file received: \""  << out + headerRecv.fileName << "\"\n";
+                cout << "\rSuccessfully received " << totalRecv << " bytes" << " out of " << headerRecv.dataLength
+                    << " bytes of data (" << ((float)totalRecv * 100) / (float)headerRecv.dataLength 
+                    << "%) " << "from " << ipinput << "\nFile received : \"" << out + headerRecv.fileName << "\"\n";
             }
         }
         else {
@@ -200,14 +214,26 @@ string RandomString(int ch)
     return result;
 }
 
-string encrypt(string msg, string key)
+void encrypt(char* msg, int size, const char* key, int sizeKey)
 {
-    string tmp(key);
-    while (key.size() < msg.size())
-        key += tmp;
+    int j = 0;
 
     //encryption part
-    for (string::size_type i = 0; i < msg.size(); ++i)
-        msg[i] ^= key[i];
-    return msg;
+    for (auto i = 0; i < size; ++i)
+    {
+        msg[i] ^= key[j];
+        j = (j + 1) % sizeKey;
+    }
+    return;
+}
+
+void encryptFile(char* msg, int size, const char* key, int sizeKey, int& j)
+{
+    //encryption part
+    for (auto i = 0; i < size; ++i)
+    {
+        msg[i] ^= key[j];
+        j = (j + 1) % sizeKey;
+    }
+    return;
 }

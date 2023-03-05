@@ -5,12 +5,13 @@
 #include <boost/program_options.hpp>
 #include <string>
 #include <fstream>
+#include <iomanip>
 
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "Mswsock.lib")
 #pragma comment (lib, "AdvApi32.lib")
 
-#define DEFAULT_BUFLEN 512
+#define DEFAULT_BUFLEN 1024
 
 namespace po = boost::program_options;
 using namespace std;
@@ -22,7 +23,8 @@ struct Header {
 };
 
 
-string encrypt(string msg, string key);
+void encrypt(char* msg, int size, const char* key, int sizeKey);
+void encryptFile(char* msg, int size, const char* key, int sizeKey, int& j);
 void sendtext(SOCKET ConnectSocket);
 void sendfile(SOCKET ConnectSocket);
 
@@ -118,16 +120,28 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-string encrypt(string msg, string key)
+void encrypt(char* msg, int size, const char* key, int sizeKey)
 {
-    string tmp(key);
-    while (key.size() < msg.size())
-        key += tmp;
+    int j = 0;
 
     //encryption part
-    for (string::size_type i = 0; i < msg.size(); ++i)
-        msg[i] ^= key[i];
-    return msg;
+    for (auto i = 0; i < size; ++i)
+    {
+        msg[i] ^= key[j];
+        j = (j + 1) % sizeKey;
+    }
+    return;
+}
+
+void encryptFile(char* msg, int size, const char* key, int sizeKey, int &j)
+{
+    //encryption part
+    for (auto i = 0; i < size; ++i)
+    {
+        msg[i] ^= key[j];
+        j = (j + 1) % sizeKey;
+    }
+    return;
 }
 
 void sendtext(SOCKET ConnectSocket)
@@ -154,26 +168,24 @@ void sendtext(SOCKET ConnectSocket)
 
     ZeroMemory(&key, sizeof(key));
     if (recv(ConnectSocket, key, 24, 0)) {
-        string sKey;
-        for (int i = 0; i < 24; i++) {
-            sKey += key[i];
-        }
-        string encrText = encrypt(inputText, sKey);
-        const char* sendbuf = encrText.c_str();
-        int n = 0;
-        int length = headerSent.dataLength;
+        encrypt((char*) inputText.data(), inputText.size() + 1, key, 24);
+        int totalSent = 0;
+
+        int length = inputText.size() + 1;
+        cout << fixed << "Sent: " << 0 << "%";
         while (length > 0) {
-            const char* sendData = sendbuf + n;
-            iResult = send(ConnectSocket, sendData, DEFAULT_BUFLEN, 0);
+            iResult = send(ConnectSocket, (char*)inputText.data() + totalSent, min(length, DEFAULT_BUFLEN), 0);
             if (iResult == SOCKET_ERROR) {
                 cout << "Send text failed with error : " << WSAGetLastError() << "\n";
                 closesocket(ConnectSocket);
                 return;
             }
+
+            totalSent += iResult;
+            cout << "\rSent: " << setprecision(2) << (totalSent * 100.0) / headerSent.dataLength << "%";
             length -= iResult;
-            n += iResult;
         }
-        cout << "\nSent " << headerSent.dataLength << " bytes of data completed\n";
+        cout << "\rSent " << setprecision(2) << 100.0 << "%)" << " bytes of data completed\n";
     }
     return;
 }
@@ -206,28 +218,28 @@ void sendfile(SOCKET ConnectSocket)
 
         ZeroMemory(&key, sizeof(key));
         if (recv(ConnectSocket, key, 24, 0)) {
-            string sKey;
-            for (int i = 0; i < 24; i++) {
-                sKey += key[i];
-            }
-            file.seekg(0, std::ios::beg);
+            file.seekg(0, ios::beg);
 
             int length = headerSent.dataLength;
-            ofstream tempfile;
-            tempfile.open("temp.txt", ios::binary | ios::trunc);
+            int start = 0;
+            int totalSent = 0;
+            cout << fixed << "Sent: 0%";
             while(length > 0){
                 file.read(bufferFile, DEFAULT_BUFLEN);
                 if (file.gcount() > 0) {
-                    string eString = encrypt(bufferFile, sKey);
-                    iResult = send(ConnectSocket, eString.c_str(), file.gcount(), 0);
+                    encryptFile(bufferFile, file.gcount(), key, 24, start);
+                    iResult = send(ConnectSocket, bufferFile, file.gcount(), 0);
                     if (iResult == SOCKET_ERROR) {
                         cout << "Send file failed with error : " << WSAGetLastError() << "\n";
                         closesocket(ConnectSocket);
                         return;
                     }
                 }
+                totalSent += iResult;
+                cout << "\rSent: " << setprecision(2)  << (totalSent * 100.0) / headerSent.dataLength << "%";
                 length -= iResult;
             }
+            cout << "\rSent " << setprecision(2) << 100.0 << "%)" << " bytes of data completed\n";
 
             return;
         }
