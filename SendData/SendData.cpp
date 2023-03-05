@@ -11,7 +11,7 @@
 #pragma comment(lib, "Mswsock.lib")
 #pragma comment (lib, "AdvApi32.lib")
 
-#define DEFAULT_BUFLEN 1024
+#define DEFAULT_BUFLEN 8192
 
 namespace po = boost::program_options;
 using namespace std;
@@ -19,7 +19,8 @@ using namespace std;
 struct Header {
     int msgType;
     int dataLength;
-    string fileName;
+    int buffSize = 8192;
+    string fileName = "";
 };
 
 
@@ -197,10 +198,18 @@ void sendfile(SOCKET ConnectSocket)
     string filePath;
     char bufferFile[DEFAULT_BUFLEN];
     ifstream file;
+    int buffSize;
 
     cout << "Plese enter your file path: ";
     cin >> filePath;
     file.open(filePath, ios::binary);
+
+    cout << "Please enter your buffer size by bytes (max 8192): ";
+    cin >> buffSize;
+    if (!buffSize) {
+        buffSize = 1;
+    }
+
     if (file.is_open())
     {
         file.seekg(0, std::ios::end);
@@ -208,10 +217,11 @@ void sendfile(SOCKET ConnectSocket)
         headerSent.msgType = 2;
         headerSent.dataLength = file.tellg();
         headerSent.fileName = filePath.substr(filePath.find_last_of("/\\") + 1);
+        headerSent.buffSize = min(8192, buffSize);
         
         iResult = send(ConnectSocket, (char*)&headerSent, (int)sizeof(headerSent), 0);
         if (iResult == SOCKET_ERROR) {
-            cout << "Send header failed with error : " << WSAGetLastError() << "\n";
+            cout << "\nSend header failed with error : " << WSAGetLastError() << "\n";
             closesocket(ConnectSocket);
             return;
         }
@@ -225,12 +235,12 @@ void sendfile(SOCKET ConnectSocket)
             int totalSent = 0;
             cout << fixed << "Sent: 0%";
             while(length > 0){
-                file.read(bufferFile, DEFAULT_BUFLEN);
+                file.read(bufferFile, headerSent.buffSize);
                 if (file.gcount() > 0) {
                     encryptFile(bufferFile, file.gcount(), key, 24, start);
                     iResult = send(ConnectSocket, bufferFile, file.gcount(), 0);
                     if (iResult == SOCKET_ERROR) {
-                        cout << "Send file failed with error : " << WSAGetLastError() << "\n";
+                        cout << "\nSend file failed with error : " << WSAGetLastError() << "\n";
                         closesocket(ConnectSocket);
                         return;
                     }
@@ -239,7 +249,7 @@ void sendfile(SOCKET ConnectSocket)
                 cout << "\rSent: " << setprecision(2)  << (totalSent * 100.0) / headerSent.dataLength << "%";
                 length -= iResult;
             }
-            cout << "\rSent " << setprecision(2) << 100.0 << "%)" << " bytes of data completed\n";
+            cout << "\rSent " << setprecision(2) << 100.0 << "%" << " bytes of data completed\n";
 
             return;
         }

@@ -8,7 +8,7 @@
 
 #pragma comment(lib, "Ws2_32.lib")
 
-#define DEFAULT_BUFLEN 1024
+#define DEFAULT_BUFLEN 8192
 
 namespace po = boost::program_options;
 using namespace std;
@@ -16,6 +16,7 @@ using namespace std;
 struct Header {
     int msgType;
     int dataLength;
+    int buffSize = 8192;
     string fileName = "";
 };
 
@@ -127,7 +128,7 @@ int main(int argc, char* argv[])
                 cout << fixed << "Received: " << 0 << "%";
                 while (length > 0) {
                     ZeroMemory(&data, sizeof(data));
-                    iResult = recv(ClientSocket, data, min(DEFAULT_BUFLEN, length), 0);
+                    iResult = recv(ClientSocket, data, min(headerRecv.buffSize, length), 0);
                     if (iResult > 0) {
                         for (int i = 0; i < min(iResult, length); i++) {
                             display += data[i];
@@ -151,14 +152,14 @@ int main(int argc, char* argv[])
             else if (msgType == 2){
                 send(ClientSocket, pKey, 24, 0);
                 ofstream file;
-                char data[DEFAULT_BUFLEN];
                 file.open(out + headerRecv.fileName, ios::binary | ios::trunc);
+                char data[8192];
 
                 int start = 0;
                 cout << fixed << "Received: " << 0 << "%";
                 while (length > 0) {
                     ZeroMemory(&data, sizeof(data));
-                    iResult = recv(ClientSocket, data, min(DEFAULT_BUFLEN, length), 0);
+                    iResult = recv(ClientSocket, data, min(headerRecv.buffSize, length), 0);
                     if (iResult > 0) {
                         encryptFile(data, iResult, key.data(), 24, start);
                         file.write(data, iResult);
@@ -166,8 +167,8 @@ int main(int argc, char* argv[])
                         cout << "\rReceived: " << setprecision(2) << (totalRecv * 100.0) / headerRecv.dataLength << "%";
                         length -= iResult;
                     }
-                    else if (result < 0) {
-                        cout << "Receive data failed with error: " << WSAGetLastError() << "\n";
+                    else if (iResult < 0) {
+                        cout << "\nReceive data failed with error: " << WSAGetLastError() << "\n";
                         closesocket(ClientSocket);
                         WSACleanup();
                         return 1;
