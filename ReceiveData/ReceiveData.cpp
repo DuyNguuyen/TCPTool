@@ -1,7 +1,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <iostream>
-#include <boost/program_options.hpp>
+//#include <boost/program_options.hpp>
 #include <string>
 #include <fstream>
 #include <iomanip>
@@ -10,7 +10,7 @@
 
 #define DEFAULT_BUFLEN 8192
 
-namespace po = boost::program_options;
+//namespace po = boost::program_options;
 using namespace std;
 
 struct Header {
@@ -29,30 +29,32 @@ int main(int argc, char* argv[])
     WSADATA wsaData;
     int iResult;
     addrinfo* result = NULL, hints;
-    string inputPort;
+    string inputPort = "27600";
     int iSendResult;
     SOCKET ListenSocket = INVALID_SOCKET;
-    string out;
+    string out = "D:\\socket out\\";
     SOCKET ClientSocket = INVALID_SOCKET;
+    string desc = "Allowed options:\n        - h[--help]                      produce help message.\n        - p[--port] arg(= 27600)         Set port to listen for connection.\n        - o[--out] arg(= D:\socket out\) Set directory to store received file.";
 
-    // Declare the supported options.
-    po::options_description desc("Allowed options");
-    desc.add_options()
-        ("help,h", "produce help message.")
-        ("port,p", po::value<string>(&inputPort)->default_value("27600"), "Set port to listen for connection.")
-        ("out,o", po::value<string>(&out)->default_value("D:\\socket out\\"), "Set directory to store received file.")
-        ;
-    po::positional_options_description p;
-    p.add("input-file", -1);
+    if (argc > 1) {
+        for (int i = 0; i < argc; i++) {
+            if (string(argv[i]) == "-h" || string(argv[i]) == "--help") {
+                cout << desc;
+                return 1;
+            }
 
-    po::variables_map vm;
-    po::store(po::command_line_parser(argc, argv).
-        options(desc).positional(p).run(), vm);
-    po::notify(vm);
+            if (string(argv[i]) == "-p" || string(argv[i]) == "--port") {
+                inputPort = string(argv[i + 1]);               
+            }
 
-    if (vm.count("help")) {
-        cout << desc << "\n";
-        return 1;
+            if (string(argv[i]) == "-o" || string(argv[i]) == "--out") {
+                ifstream test(string(argv[i + 1]));
+                if (!test) {
+                   cout << "The folder doesn't exist";
+                }
+                out = string(argv[i + 1]);
+            }
+        }
     }
 
     const char* PORT = inputPort.c_str();
@@ -95,7 +97,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    cout << "\nListening for connection...";
+    cout << "\nListening for connection on port " << inputPort << "...";
 
     ClientSocket = accept(ListenSocket, NULL, NULL);
     if (ClientSocket == INVALID_SOCKET) {
