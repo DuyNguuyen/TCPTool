@@ -2,7 +2,6 @@
 ## Build chương trình:
 - Khuyến khích build chương trình với Visual Studio 2019.
 ## Chạy chương trình:
-- Tệp tin **boost_program_options-vc143-mt-x64-1_81.dll** nên được đặt trong cùng thư mục với tệp thực thi **SendData.exe** và **ReceiveData.exe**.
 - Nên khởi chạy **ReceiveData.exe** trước **SendData.exe**.
 - Khởi chạy **ReceiveData.exe** với các lựa chọn:
 ```
