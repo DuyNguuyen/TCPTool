@@ -2,7 +2,6 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <iostream>
-#include <boost/program_options.hpp>
 #include <string>
 #include <fstream>
 #include <iomanip>
@@ -13,7 +12,6 @@
 
 #define DEFAULT_BUFLEN 8192
 
-namespace po = boost::program_options;
 using namespace std;
 
 struct Header {
@@ -34,28 +32,25 @@ int main(int argc, char* argv[])
     WSADATA wsaData;
     addrinfo* result = NULL, hints;
     string inputText;
-    string inputAdd;
-    string inputPort;
+    string inputAdd = "127.0.0.1";
+    string inputPort = "27600";
+    string desc = "Allowed options:\n- h[--help]                 produce help message\n- d[--des] arg(= 127.0.0.1) Set ip address to send data to\n- p[--port] arg(= 27600)    Set port to sent data to";
 
-    // Declare the supported options.
-    po::options_description desc("Allowed options");
-    desc.add_options()
-        ("help,h", "produce help message")
-        ("des,d", po::value<string>(&inputAdd)->default_value("127.0.0.1"), "Set ip address to send data to")
-        ("port,p", po::value<string>(&inputPort)->default_value("27600"), "Set port to sent data to")
-        ;
+    if (argc > 1) {
+        for (int i = 0; i < argc; i++) {
+            if (string(argv[i]) == "-h" || string(argv[i]) == "--help") {
+                cout << desc;
+                return 1;
+            }
 
-    po::positional_options_description p;
-    p.add("input-file", -1);
+            if (string(argv[i]) == "-p" || string(argv[i]) == "--port") {
+                inputPort = string(argv[i + 1]);
+            }
 
-    po::variables_map vm;
-    po::store(po::command_line_parser(argc, argv).
-        options(desc).positional(p).run(), vm);
-    po::notify(vm);
-
-    if (vm.count("help")) {
-        cout << desc << "\n";
-        return 1;
+            if (string(argv[i]) == "-d" || string(argv[i]) == "--des") {
+                string inputAdd = string(argv[i + 1]);
+            }
+        }
     }
 
     const char* IPADD = inputAdd.c_str();
@@ -93,6 +88,7 @@ int main(int argc, char* argv[])
 
     int option = 1;
     while (option != 0){
+        cout << "\---nTCP Tool" << "\n";
         cout << "1 - Send text to receiver.\n";
         cout << "2 - Send file to receiver.\n";
         cout << "0 - Exit.\n";
@@ -186,7 +182,7 @@ void sendtext(SOCKET ConnectSocket)
             cout << "\rSent: " << setprecision(2) << (totalSent * 100.0) / headerSent.dataLength << "%";
             length -= iResult;
         }
-        cout << "\rSent " << setprecision(2) << 100.0 << "%)" << " bytes of data completed\n";
+        cout << "\rSent " << setprecision(2) << 100.0 << "%" << " bytes of data completed\n";
     }
     return;
 }

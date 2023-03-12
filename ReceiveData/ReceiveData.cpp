@@ -1,10 +1,10 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <iostream>
-//#include <boost/program_options.hpp>
 #include <string>
 #include <fstream>
 #include <iomanip>
+#include <windows.h>
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -44,15 +44,18 @@ int main(int argc, char* argv[])
             }
 
             if (string(argv[i]) == "-p" || string(argv[i]) == "--port") {
-                inputPort = string(argv[i + 1]);               
+                inputPort = string(argv[i + 1]);
             }
 
             if (string(argv[i]) == "-o" || string(argv[i]) == "--out") {
-                ifstream test(string(argv[i + 1]));
-                if (!test) {
-                   cout << "The folder doesn't exist";
-                }
                 out = string(argv[i + 1]);
+
+                DWORD ftyp = GetFileAttributesA(out.c_str());
+                if (ftyp == INVALID_FILE_ATTRIBUTES){
+                    cout << "Your folder don't exist";
+                    return 1;
+                }
+
             }
         }
     }
