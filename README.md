@@ -1,6 +1,5 @@
 # TCPTool
 ## Build chương trình:
-- Cài đặt vcpkg và thư viện Boost.
 - Khuyến khích build chương trình với Visual Studio 2019.
 ## Chạy chương trình:
 - Tệp tin **boost_program_options-vc143-mt-x64-1_81.dll** nên được đặt trong cùng thư mục với tệp thực thi **SendData.exe** và **ReceiveData.exe**.
@@ -30,3 +29,7 @@ Please select option:
 - Nếu nhập **1**, tiếp tục nhập đoạn văn bản muôn gửi đến bên nhận sau đó nhấn **Enter**
 - Nếu nhập **2**, tiếp tục nhập đường dẫn đến tập tin cần gửi (ví dụ: C:\test:\test.txt) sau đó nhấn **Enter**. 
   cuối cùng nhập kích thước của buffer mỗi lần gửi rồi nhấn **Enter**.
+## Đường dẫn tài liệu tham khảo
+- [Windows Sockets 2](https://learn.microsoft.com/en-us/windows/win32/winsock/windows-sockets-start-page-2)
+- [GetFileAttributesA function](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfileattributes)
+- [XOR Cipher](https://www.geeksforgeeks.org/xor-cipher/)
